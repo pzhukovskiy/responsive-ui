@@ -17,8 +17,6 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun FirstScreen() {
-    Text(text = "First page")
-    //content, not necessarily scrollable or list
     LazyColumn{
         items(200, key = {it}){
             Box(

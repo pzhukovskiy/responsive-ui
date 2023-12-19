@@ -1,13 +1,18 @@
 package com.example.test.compose.home
 
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
@@ -19,10 +24,15 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.*
+import coil.ImageLoader
+import coil.compose.rememberAsyncImagePainter
 import com.example.test.compose.first.FirstScreen
 import com.example.test.compose.second.SecondScreen
 import com.example.test.utilities.SwipingStates
@@ -33,6 +43,27 @@ fun HomeScreen() {
     val swipingState = rememberSwipeableState(initialValue = SwipingStates.EXPANDED)
     var tabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("First", "Second")
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val bitmap = remember { mutableStateOf<Bitmap?>(null) }
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
+        imageUri = uri
+    }
+
+    imageUri?.let {
+        val source = ImageDecoder.createSource(context.contentResolver, it)
+        bitmap.value = ImageDecoder.decodeBitmap(source)
+
+        bitmap.value?.let { btm ->
+            Image(bitmap = btm.asImageBitmap(), contentDescription = null, modifier = Modifier.size(200.dp))
+        }
+    }
+
+    Button(onClick = { launcher.launch("image/*") }) {
+        Text(text = "pick image")
+    }
+
+
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -71,24 +102,23 @@ fun HomeScreen() {
                 private fun Float.toOffset() = Offset(0f, this)
             }
         }
-
-        Box(//root container
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .swipeable(
                     state = swipingState,
                     thresholds = { _, _ ->
-                        FractionalThreshold(0.05f)//it can be 0.5 in general
+                        FractionalThreshold(0.05f)
                     },
                     orientation = Orientation.Vertical,
                     anchors = mapOf(
-                        0f to SwipingStates.COLLAPSED,//min height is collapsed
-                        heightInPx to SwipingStates.EXPANDED,//max height is expanded
+                        0f to SwipingStates.COLLAPSED,
+                        heightInPx to SwipingStates.EXPANDED,
                     )
                 )
                 .nestedScroll(nestedScrollConnection)
         ) {
-            val computedProgress by remember {//progress value will be decided as par state
+            val computedProgress by remember {
                 derivedStateOf {
                     if (swipingState.progress.to == SwipingStates.COLLAPSED)
                         swipingState.progress.fraction
@@ -192,6 +222,9 @@ fun HomeScreen() {
                     modifier = Modifier
                         .layoutId("content1")
                         .aspectRatio(1f)
+                        .clickable {
+                            launcher.launch("image/*")
+                        }
                         .border(
                             BorderStroke(
                                 4.dp,
@@ -200,9 +233,24 @@ fun HomeScreen() {
                             CircleShape
                         )
                         .padding(8.dp)
-                        .background(Color.Blue, CircleShape)
-                ){
-
+                ) {
+                    if (imageUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = imageUri,
+                                imageLoader = ImageLoader.Builder(context).crossfade(true).build()),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Blue, CircleShape)
+                        )
+                    }
                 }
 
                 Text(
